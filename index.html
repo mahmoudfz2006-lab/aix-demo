@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIX demo: online booking</title>
+<meta name="description" content="Try the online booking, confirmations and reminders AIX sets up for small businesses. A demo with a made-up business.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #f4f4f7;
+    --card: #ffffff;
+    --text: #0e0e12;
+    --muted: #6b6b75;
+    --faint: #a0a0aa;
+    --line: #e4e4ea;
+    --soft: #f2f2f6;
+    --tone: #1f6bff;
+    --tone-2: #6a5cff;
+    --radius: 20px;
+    --shadow: 0 1px 2px rgba(15, 15, 30, 0.04), 0 8px 28px rgba(15, 15, 30, 0.07);
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --ink: #08080b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  [hidden] { display: none !important; }
+
+  /* --- Demo bar -------------------------------------------------------------------- */
+  .demo-bar { background: var(--ink); color: #e9e9ef; font-size: 13.5px; position: relative; z-index: 2; }
+  .demo-bar__inner {
+    max-width: 1120px; margin: 0 auto; padding: 10px 16px;
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: space-between;
+  }
+  .demo-bar strong { color: #fff; }
+  .demo-tag {
+    display: inline-block; margin-right: 8px; padding: 2px 9px; border-radius: 999px;
+    background: linear-gradient(90deg, #ff9f0a, #ff375f, #bf5af2, #0a84ff);
+    color: #fff; font-weight: 750; font-size: 11px; letter-spacing: 0.06em;
+  }
+  .switch { display: flex; gap: 6px; }
+  .switch a {
+    color: #b9b9c4; text-decoration: none; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid #34343c; transition: all 0.2s var(--ease);
+  }
+  .switch a:hover { color: #fff; border-color: #6a6a76; }
+  .switch a[aria-current="page"] { color: var(--ink); background: #fff; border-color: #fff; font-weight: 600; }
+
+  /* --- Business cover ---------------------------------------------------------------- */
+  .cover {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(900px 340px at 85% -40%, color-mix(in srgb, var(--tone-2) 55%, transparent), transparent 70%),
+      radial-gradient(700px 300px at 0% 120%, color-mix(in srgb, var(--tone) 60%, transparent), transparent 70%),
+      linear-gradient(135deg, #0d0f1a, #141826);
+    color: #fff;
+  }
+  .cover::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px; pointer-events: none;
+  }
+  .cover__inner { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 40px 16px 92px; display: flex; gap: 20px; align-items: center; }
+  .logo {
+    flex-shrink: 0; width: 72px; height: 72px; border-radius: 20px;
+    display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2));
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--tone) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .logo svg { width: 36px; height: 36px; }
+  .cover h1 { margin: 0; font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.02em; line-height: 1.1; }
+  .cover p { margin: 6px 0 0; color: rgba(255, 255, 255, 0.72); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .chip b { color: #6dffa8; font-weight: 600; }
+
+  /* --- Layout -------------------------------------------------------------------- */
+  main { max-width: 1120px; margin: -64px auto 0; padding: 0 16px 64px; position: relative; z-index: 1; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .summary { position: static !important; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .panel { padding: 24px; }
+
+  /* --- Progress -------------------------------------------------------------------- */
+  .progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+  .progress li { list-style: none; font-size: 12.5px; color: var(--faint); font-weight: 600; }
+  .progress li::before {
+    content: ""; display: block; height: 4px; border-radius: 4px; margin-bottom: 8px;
+    background: var(--line); transition: background 0.35s var(--ease);
+  }
+  .progress li.is-done, .progress li.is-now { color: var(--text); }
+  .progress li.is-done::before, .progress li.is-now::before { background: linear-gradient(90deg, var(--tone), var(--tone-2)); }
+  .progress { padding: 0; margin-top: 0; }
+
+  .step { animation: rise 0.35s var(--ease); }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .step h2 { margin: 0 0 4px; font-size: 21px; letter-spacing: -0.01em; }
+  .step .hint { margin: 0 0 18px; color: var(--muted); }
+
+  /* --- Services -------------------------------------------------------------------- */
+  .services { display: grid; gap: 12px; }
+  .service {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center;
+    text-align: left; padding: 14px 16px; border-radius: 16px;
+    border: 1px solid var(--line); background: var(--card);
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+  .service:hover { border-color: color-mix(in srgb, var(--tone) 50%, var(--line)); transform: translateY(-1px); }
+  .service[aria-pressed="true"] { border-color: var(--tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 18%, transparent); }
+  .service__icon {
+    width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--tone) 10%, transparent); color: var(--tone);
+  }
+  .service__icon svg { width: 22px; height: 22px; }
+  .service strong { display: block; font-size: 15.5px; }
+  .service small { color: var(--muted); }
+  .duration { font-size: 13px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+
+  /* --- Calendar and times ---------------------------------------------------------- */
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 18px; max-width: 470px; }
+  .cal__head { font-size: 11.5px; color: var(--faint); text-align: center; font-weight: 600; padding-bottom: 2px; }
+  .cal__day {
+    aspect-ratio: 1 / 0.9; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+    display: grid; place-items: center; align-content: center; gap: 0; font-weight: 600; font-size: 15px;
+    transition: all 0.18s var(--ease);
+  }
+  .cal__day small { font-size: 10.5px; font-weight: 500; color: var(--muted); }
+  .cal__day:disabled { color: #c8c8d0; background: var(--soft); border-color: transparent; cursor: not-allowed; }
+  .cal__day:not(:disabled):hover { border-color: var(--tone); }
+  .cal__day[aria-pressed="true"] { background: linear-gradient(140deg, var(--tone), var(--tone-2)); color: #fff; border-color: transparent; }
+  .cal__day[aria-pressed="true"] small { color: rgba(255, 255, 255, 0.8); }
+  .slot-group { margin-bottom: 14px; }
+  .slot-group h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .slots { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+  .slot {
+    padding: 9px 4px; border-radius: 11px; border: 1px solid var(--line); background: var(--card);
+    font-variant-numeric: tabular-nums; font-weight: 550; transition: all 0.18s var(--ease);
+  }
+  .slot:hover:not(:disabled) { border-color: var(--tone); color: var(--tone); }
+  .slot:disabled { color: #c3c3cb; text-decoration: line-through; background: var(--soft); border-color: transparent; cursor: not-allowed; }
+  .slot[aria-pressed="true"] { background: var(--tone); border-color: var(--tone); color: #fff; }
+
+  /* --- Details ---------------------------------------------------------------------- */
+  .fields { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; }
+  label span.opt { color: var(--faint); font-weight: 500; }
+  input {
+    padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); font-weight: 400;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  input:focus { outline: none; border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 16%, transparent); }
+  .privacy {
+    display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 12px 14px;
+    border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 13.5px;
+  }
+  .privacy svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; color: var(--tone); }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .back { background: none; border: 0; color: var(--muted); padding: 8px 2px; font-weight: 600; }
+  .back:hover { color: var(--text); }
+  .primary {
+    padding: 13px 22px; border: 0; border-radius: 14px; font-weight: 650; color: #fff;
+    background: linear-gradient(135deg, var(--tone), var(--tone-2));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--tone) 35%, transparent);
+    transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), opacity 0.2s;
+  }
+  .primary:hover:not(:disabled) { transform: translateY(-1px); }
+  .primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .error { color: #d70015; font-size: 13.5px; }
+
+  /* --- Summary sidebar ---------------------------------------------------------------- */
+  .summary { position: sticky; top: 16px; padding: 22px; }
+  .summary h2 { margin: 0 0 14px; font-size: 15px; }
+  .summary dl { margin: 0; display: grid; gap: 12px; }
+  .summary dt { font-size: 12px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary dd { margin: 2px 0 0; font-weight: 600; }
+  .summary dd.empty { color: #c3c3cb; font-weight: 500; }
+  .includes { margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); display: grid; gap: 9px; font-size: 13.5px; color: var(--muted); }
+  .includes div { display: flex; gap: 9px; align-items: center; }
+  .includes svg { width: 16px; height: 16px; color: var(--tone); flex-shrink: 0; }
+
+  /* --- Confirmation -------------------------------------------------------------------- */
+  .done { text-align: center; padding: 34px 24px 28px; }
+  .check {
+    width: 74px; height: 74px; margin: 0 auto 14px; border-radius: 50%;
+    display: grid; place-items: center; color: #fff;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2));
+    box-shadow: 0 12px 30px color-mix(in srgb, var(--tone) 40%, transparent);
+    animation: pop 0.5s var(--ease);
+  }
+  .check svg { width: 36px; height: 36px; stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw 0.45s 0.2s var(--ease) forwards; }
+  @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .done h2 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  .done .when-line { margin: 6px 0 0; color: var(--muted); }
+  .ticket {
+    margin: 22px auto 0; max-width: 460px; text-align: left; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--tone) 45%, var(--line));
+    background: color-mix(in srgb, var(--tone) 5%, transparent); padding: 16px 18px; display: grid; grid-template-columns: 1fr auto; gap: 6px 14px;
+  }
+  .ticket .ref { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700; letter-spacing: 0.06em; }
+  .ticket small { color: var(--muted); }
+  .done .actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .ghost { padding: 12px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); font-weight: 600; }
+  .ghost:hover { border-color: var(--tone); color: var(--tone); }
+
+  /* --- Behind the scenes (AIX, dark) --------------------------------------------------- */
+  .scenes {
+    margin-top: 28px; border-radius: 28px; padding: 34px 24px; color: #e9e9ef; overflow: hidden; position: relative;
+    background:
+      radial-gradient(700px 300px at 100% 0%, rgba(191, 90, 242, 0.22), transparent 70%),
+      radial-gradient(600px 300px at 0% 100%, rgba(10, 132, 255, 0.2), transparent 70%),
+      var(--ink);
+  }
+  .scenes__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: end; margin-bottom: 24px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #9d9dff; }
+  .scenes h2 { margin: 4px 0 0; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.02em; color: #fff; }
+  .scenes p.lead { margin: 6px 0 0; color: #a9a9b6; max-width: 560px; }
+  .replay { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); color: #fff; padding: 9px 14px; border-radius: 12px; font-weight: 600; }
+  .scenes__grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 22px; }
+  @media (max-width: 900px) { .scenes__grid { grid-template-columns: 1fr; } }
+
+  .flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .flow li {
+    display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07);
+    opacity: 0.32; transform: translateX(-6px); transition: all 0.45s var(--ease);
+  }
+  .flow li.is-on { opacity: 1; transform: none; border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.07); }
+  .flow .dot {
+    width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: rgba(255, 255, 255, 0.08); color: #c9c9ff;
+  }
+  .flow li.is-on .dot { background: linear-gradient(140deg, #5e5ce6, #bf5af2); color: #fff; box-shadow: 0 0 18px rgba(191, 90, 242, 0.45); }
+  .flow .dot svg { width: 17px; height: 17px; }
+  .flow strong { display: block; color: #fff; font-size: 14.5px; }
+  .flow small { color: #9a9aa8; }
+  .flow time { font-size: 12px; color: #8d8d9b; white-space: nowrap; }
+
+  /* Phone */
+  .phone {
+    width: 100%; max-width: 330px; margin: 0 auto; border-radius: 44px; padding: 12px;
+    background: linear-gradient(160deg, #2b2b33, #121217); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+  .phone__screen {
+    border-radius: 34px; min-height: 520px; padding: 16px 12px 18px; position: relative; overflow: hidden;
+    background: linear-gradient(170deg, color-mix(in srgb, var(--tone) 60%, #1b1440), #1a1030 60%, #0b0b12);
+  }
+  .phone__island { width: 96px; height: 26px; border-radius: 20px; background: #000; margin: 0 auto 18px; }
+  .phone__clock { text-align: center; color: #fff; font-size: 54px; font-weight: 300; letter-spacing: -0.03em; line-height: 1; }
+  .phone__date { text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 14px; margin: 4px 0 20px; }
+  .note {
+    border-radius: 18px; padding: 11px 13px; margin-bottom: 9px; color: #111;
+    background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    opacity: 0; transform: translateY(10px) scale(0.98); transition: all 0.5s var(--ease); font-size: 13px; line-height: 1.4;
+  }
+  .note.is-on { opacity: 1; transform: none; }
+  .note__app { display: flex; justify-content: space-between; font-size: 11.5px; color: #555; margin-bottom: 3px; }
+  .note__app b { color: #222; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+  .app-icon { width: 16px; height: 16px; border-radius: 5px; display: inline-block; }
+  .note strong { display: block; font-size: 13.5px; }
+
+  /* Owner view */
+  .owner { margin-top: 26px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .owner { grid-template-columns: 1fr; } }
+  .owner h3 { margin: 0 0 10px; color: #fff; font-size: 15px; }
+  .pane { border-radius: 18px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); padding: 16px; overflow-x: auto; }
+  .week { display: grid; grid-template-columns: 46px repeat(5, minmax(56px, 1fr)); font-size: 12px; min-width: 380px; }
+  .week__h { color: #9a9aa8; text-align: center; padding-bottom: 6px; font-weight: 600; }
+  .week__h.is-today { color: #fff; }
+  .week__t { color: #6f6f7c; padding-top: 2px; height: 30px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .week__c { height: 30px; border-top: 1px solid rgba(255, 255, 255, 0.06); border-left: 1px solid rgba(255, 255, 255, 0.04); position: relative; }
+  .bookblock {
+    position: absolute; left: 3px; right: 3px; top: 2px; z-index: 1; border-radius: 8px; padding: 4px 6px; font-size: 11px; line-height: 1.25; color: #fff;
+    overflow: hidden; overflow-wrap: anywhere;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2)); box-shadow: 0 6px 18px color-mix(in srgb, var(--tone) 45%, transparent);
+    animation: pop 0.5s var(--ease);
+  }
+  .busyblock {
+    position: absolute; left: 3px; right: 3px; top: 3px; bottom: 3px; border-radius: 7px;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8d8d9b; font-size: 10.5px; padding: 3px 6px; overflow: hidden;
+  }
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 360px; }
+  .sheet th, .sheet td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 7px 8px; text-align: left; }
+  .sheet th { color: #9a9aa8; font-weight: 600; background: rgba(255, 255, 255, 0.04); }
+  .sheet td { color: #fff; }
+  .sheet tr.new td { background: color-mix(in srgb, var(--tone) 22%, transparent); }
+  .mail { margin-top: 14px; border-radius: 14px; background: #fff; color: #111; padding: 14px 16px; font-size: 13.5px; white-space: pre-line; }
+  .mail .subject { font-weight: 700; display: block; white-space: normal; margin-bottom: 6px; }
+  .mail .from { color: #777; font-size: 12px; display: block; margin-bottom: 8px; white-space: normal; }
+
+  /* --- Footer ---------------------------------------------------------------------- */
+  .aix {
+    margin-top: 28px; border-radius: 28px; padding: 30px 24px; text-align: center; background: var(--card);
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .wordmark {
+    font-weight: 800; letter-spacing: 0.08em; font-size: 22px;
+    background: linear-gradient(90deg, #ff9f0a, #ff375f, #bf5af2, #5e5ce6, #0a84ff, #64d2ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .aix p { margin: 8px auto 0; max-width: 620px; color: var(--muted); }
+  .aix .points { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0 20px; }
+  .aix .points span { padding: 7px 12px; border-radius: 999px; background: var(--soft); font-size: 13.5px; font-weight: 600; }
+  .cta {
+    display: inline-flex; gap: 8px; align-items: center; padding: 13px 22px; border-radius: 14px; text-decoration: none; color: #fff; font-weight: 650;
+    background: linear-gradient(135deg, #ff375f, #bf5af2 45%, #0a84ff);
+    box-shadow: 0 10px 26px rgba(191, 90, 242, 0.35);
+  }
+  .aix small { display: block; margin-top: 12px; color: var(--faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .check svg { stroke-dashoffset: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="demo-bar" role="note">
+  <div class="demo-bar__inner">
+    <span><span class="demo-tag">DEMO</span>This is a demo of a made-up business, to show what your customers would see. <strong>Nothing you type is saved or sent.</strong></span>
+    <nav class="switch" aria-label="Demo versions">
+      <a href="?for=garage" data-for="garage">Garage</a>
+      <a href="?for=salon" data-for="salon">Salon</a>
+      <a href="?for=vet" data-for="vet">Vet</a>
+    </nav>
+  </div>
+</div>
+
+<header class="cover">
+  <div class="cover__inner">
+    <div class="logo" id="logo" aria-hidden="true"></div>
+    <div>
+      <h1 id="biz-name"></h1>
+      <p id="biz-line"></p>
+      <div class="chips">
+        <span class="chip"><b>●</b> Book online 24/7</span>
+        <span class="chip" id="biz-hours"></span>
+        <span class="chip">Instant confirmation</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="layout">
+    <section class="card panel" id="booking" aria-label="Book online">
+      <ol class="progress" id="progress">
+        <li>Service</li><li>Date and time</li><li>Your details</li><li>Confirmed</li>
+      </ol>
+
+      <div class="step" id="step-1">
+        <h2>Choose a service</h2>
+        <p class="hint">Pick what you need. You can change it before you confirm.</p>
+        <div class="services" id="services" role="group" aria-label="Services"></div>
+      </div>
+
+      <div class="step" id="step-2" hidden>
+        <h2>Pick a date and time</h2>
+        <p class="hint">Times shown in the business's local time.</p>
+        <div class="cal" id="cal" role="group" aria-label="Dates"></div>
+        <div class="slot-group"><h3>Morning</h3><div class="slots" id="slots-am" role="group" aria-label="Morning times"></div></div>
+        <div class="slot-group"><h3>Afternoon</h3><div class="slots" id="slots-pm" role="group" aria-label="Afternoon times"></div></div>
+        <div class="nav">
+          <button class="back" type="button" data-go="1">← Back</button>
+          <button class="primary" type="button" id="to-3" disabled>Continue</button>
+        </div>
+      </div>
+
+      <div class="step" id="step-3" hidden>
+        <h2>Your details</h2>
+        <p class="hint">Just enough to hold your booking.</p>
+        <div class="fields">
+          <label>First name <input id="first-name" autocomplete="off" placeholder="Alex"></label>
+          <label id="extra-label" hidden><span><span id="extra-name"></span> <span class="opt">(optional)</span></span><input id="extra" autocomplete="off"></label>
+        </div>
+        <div class="privacy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+          <span>In the real thing, your email or mobile number goes here too, for the confirmation and reminders. This demo doesn't ask for them.</span>
+        </div>
+        <div class="nav">
+          <button class="back" type="button" data-go="2">← Back</button>
+          <span class="error" id="error" role="alert"></span>
+          <button class="primary" type="button" id="confirm">Confirm booking</button>
+        </div>
+      </div>
+
+      <div class="done" id="step-4" hidden aria-live="polite">
+        <div class="check" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+        <h2>You're booked in</h2>
+        <p class="when-line" id="done-line"></p>
+        <div class="ticket">
+          <small>Booking reference</small><small>Status</small>
+          <span class="ref" id="ref"></span><span><b style="color:#1a9b4b">● Confirmed</b></span>
+        </div>
+        <div class="actions">
+          <button class="ghost" type="button" id="ics">Add to calendar</button>
+          <button class="primary" type="button" id="see">See what happens next ↓</button>
+        </div>
+        <p class="hint" style="margin-top:14px"><button class="back" type="button" id="again">Start a new booking</button></p>
+      </div>
+    </section>
+
+    <aside class="card summary" aria-label="Your booking">
+      <h2>Your booking</h2>
+      <dl>
+        <div><dt>Business</dt><dd id="sum-biz"></dd></div>
+        <div><dt>Service</dt><dd id="sum-service" class="empty">Not chosen yet</dd></div>
+        <div><dt>Date and time</dt><dd id="sum-when" class="empty">Not chosen yet</dd></div>
+        <div><dt>Name</dt><dd id="sum-name" class="empty">Not added yet</dd></div>
+      </dl>
+      <div class="includes">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Instant email confirmation</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Reminder the day before</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span id="sum-later"></span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Change or cancel from the email</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="scenes" id="scenes" hidden aria-labelledby="scenes-title">
+    <div class="scenes__head">
+      <div>
+        <div class="eyebrow">Behind the scenes · set up by AIX</div>
+        <h2 id="scenes-title">What happens automatically</h2>
+        <p class="lead">No phone calls, no typing. In the real setup these go to the customer and the business; in this demo they're only shown here.</p>
+      </div>
+      <button class="replay" type="button" id="replay">↻ Replay</button>
+    </div>
+
+    <div class="scenes__grid">
+      <ol class="flow" id="flow"></ol>
+      <div class="phone" aria-label="The customer's phone">
+        <div class="phone__screen">
+          <div class="phone__island"></div>
+          <div class="phone__clock" id="phone-clock">9:41</div>
+          <div class="phone__date" id="phone-date"></div>
+          <div id="notes"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="owner">
+      <div>
+        <h3>What <span id="owner-biz"></span> sees: the diary</h3>
+        <div class="pane"><div class="week" id="week"></div></div>
+      </div>
+      <div>
+        <h3>Customer reminders sheet</h3>
+        <div class="pane"><table class="sheet" id="sheet"></table></div>
+        <div class="mail" id="mail-later"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="aix">
+    <div class="wordmark">AIX</div>
+    <p>This demo was made by AIX, a small automation studio. We set up online booking that goes
+      straight into your diary, with automatic confirmations and reminders, for garages, salons
+      and vets. You keep running your business; the follow-up runs itself.</p>
+    <div class="points"><span>Online booking</span><span>Confirmations</span><span>Reminders</span><span>Set up for you</span></div>
+    <a class="cta" href="mailto:aixagent001@gmail.com?subject=Online%20booking%20demo">Talk to AIX about this →</a>
+    <small>aixagent001@gmail.com</small>
+  </footer>
+</main>
+
+<script>
+  // Everything below runs in this page only. Nothing is stored and nothing leaves the browser.
+  var ICONS = {
+    wrench: '<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>',
+    check: '<path d="M9 11l3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>',
+    gauge: '<path d="M12 14l4-4"/><path d="M3.3 19a10 10 0 1 1 17.4 0"/>',
+    scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/>',
+    drop: '<path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.3 0z"/>',
+    hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-3a2 2 0 0 0-4 0"/>',
+    syringe: '<path d="M18 2l4 4M17 7l3-3M19 9L8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5M9 11l4 4M5 19l-3 3M14 4l6 6"/>',
+    heart: '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/>',
+    stetho: '<path d="M5 3v6a5 5 0 0 0 10 0V3"/><path d="M10 14v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="12" r="2"/>',
+    car: '<path d="M5 17h14M5 17a2 2 0 1 1-4 0v-5l2-5h14l2 5v5a2 2 0 1 1-4 0"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
+    comb: '<path d="M4 20L20 4M7 17l-2-2M10 14l-2-2M13 11l-2-2M16 8l-2-2"/>',
+    paw: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.8 1.2c-.3-.9-.9-1.7-1.7-2.2A3.4 3.4 0 0 1 4 14.5 4.5 4.5 0 0 1 9 10z"/>',
+    clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    sheet: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/>',
+    repeat: '<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  };
+  function svg(name, width) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (width || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>";
+  }
+
+  var DEMOS = {
+    garage: {
+      name: "Example Motors",
+      line: "Servicing, MOT and repairs for all makes.",
+      hours: "Mon–Fri 8:00–18:00",
+      logo: "car",
+      tone: "#1f6bff", tone2: "#6a5cff",
+      services: [
+        ["MOT test", "The yearly test, done while you wait.", 45, "check"],
+        ["Full service", "Oil, filters, brakes and a full check.", 120, "wrench"],
+        ["Repair or diagnosis", "Warning light, noise or a fault.", 60, "gauge"],
+      ],
+      extra: "Car registration", extraExample: "AB12 CDE",
+      laterLabel: "MOT reminder next year",
+      ref: "EXM",
+    },
+    salon: {
+      name: "Example Studio",
+      line: "Hair, colour and nails in a calm, friendly space.",
+      hours: "Tue–Sat 9:00–19:00",
+      logo: "comb",
+      tone: "#d0129a", tone2: "#ff5e7e",
+      services: [
+        ["Cut and finish", "Wash, cut and blow-dry.", 45, "scissors"],
+        ["Colour", "Full colour, roots or highlights.", 120, "drop"],
+        ["Manicure", "Shape, cuticle care and polish.", 45, "hand"],
+      ],
+      extra: null,
+      laterLabel: "Next-visit reminder",
+      ref: "EXS",
+    },
+    vet: {
+      name: "Example Vets",
+      line: "Friendly care for cats and dogs.",
+      hours: "Mon–Fri 8:30–18:30",
+      logo: "paw",
+      tone: "#00a383", tone2: "#13b6d8",
+      services: [
+        ["Vaccination", "Yearly boosters and first jabs.", 20, "syringe"],
+        ["Check-up", "A full health check, nose to tail.", 20, "heart"],
+        ["Consultation", "When something isn't right.", 30, "stetho"],
+      ],
+      extra: "Pet's name", extraExample: "Biscuit",
+      laterLabel: "Yearly vaccination reminder",
+      ref: "EXV",
+    },
+  };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+    "September", "October", "November", "December"];
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  var kind = new URLSearchParams(location.search).get("for");
+  if (!Object.prototype.hasOwnProperty.call(DEMOS, kind)) kind = "garage";
+  var demo = DEMOS[kind];
+  var state = { service: null, day: null, time: null, first: "", extra: "" };
+  var timers = [];
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, text) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function shortDate(d) { return DAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3); }
+  // Same format as the Customer reminders sheet: 18 November 2027.
+  function longDate(d) { return d.getDate() + " " + MONTHS[d.getMonth()] + " " + d.getFullYear(); }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12); }
+  // "MOT test" stays as it is mid-sentence; "Full service" becomes "full service".
+  function inSentence(s) {
+    var word = s.split(" ")[0];
+    return word === word.toUpperCase() ? s : s.charAt(0).toLowerCase() + s.slice(1);
+  }
+  // A steady, made-up pattern of busy slots, so the diary looks like a working week.
+  function busy(day, time) {
+    var seed = day.getDate() * 131 + day.getMonth() * 17 + Number(time.replace(":", "")) * 7;
+    var x = Math.sin(seed * 12.9898) * 43758.5453;
+    return x - Math.floor(x) < 0.25;
+  }
+  function choose(group, button) {
+    Array.prototype.forEach.call(group.querySelectorAll("[aria-pressed]"), function (b) { b.setAttribute("aria-pressed", "false"); });
+    button.setAttribute("aria-pressed", "true");
+  }
+  function setSummary(id, text) {
+    var dd = $(id);
+    dd.textContent = text;
+    dd.classList.remove("empty");
+  }
+
+  // --- Page setup -----------------------------------------------------------------------
+  var root = document.documentElement.style;
+  root.setProperty("--tone", demo.tone);
+  root.setProperty("--tone-2", demo.tone2);
+  document.title = demo.name + " · Book online · AIX demo";
+  $("biz-name").textContent = demo.name;
+  $("biz-line").textContent = demo.line;
+  $("biz-hours").textContent = demo.hours;
+  $("logo").innerHTML = svg(demo.logo, 1.8).replace('stroke="currentColor"', 'stroke="#fff"');
+  $("sum-biz").textContent = demo.name;
+  $("sum-later").textContent = demo.laterLabel;
+  $("owner-biz").textContent = demo.name;
+  Array.prototype.forEach.call(document.querySelectorAll(".switch a"), function (a) {
+    if (a.dataset.for === kind) a.setAttribute("aria-current", "page");
+  });
+
+  function go(step, scroll) {
+    [1, 2, 3, 4].forEach(function (n) { $("step-" + n).hidden = n !== step; });
+    Array.prototype.forEach.call($("progress").children, function (li, i) {
+      li.className = i + 1 < step ? "is-done" : i + 1 === step ? "is-now" : "";
+    });
+    if (scroll && window.innerWidth < 900) $("booking").scrollIntoView({ block: "start" });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll("[data-go]"), function (b) {
+    b.addEventListener("click", function () { go(Number(b.dataset.go), true); });
+  });
+
+  // --- Step 1: service ------------------------------------------------------------------
+  demo.services.forEach(function (s) {
+    var b = el("button", { type: "button", class: "service", "aria-pressed": "false" });
+    b.innerHTML = '<span class="service__icon">' + svg(s[3]) + "</span>" +
+      "<span><strong></strong><small></small></span>" +
+      '<span class="duration">' + svg("clock", 2).replace("<svg", '<svg width="14" height="14"') + "<span></span></span>";
+    b.querySelector("strong").textContent = s[0];
+    b.querySelector("small").textContent = s[1];
+    b.querySelector(".duration span").textContent = s[2] + " min";
+    b.addEventListener("click", function () {
+      choose($("services"), b);
+      state.service = s;
+      setSummary("sum-service", s[0] + " · " + s[2] + " min");
+      setTimeout(function () { go(2, true); }, 180);
+    });
+    $("services").appendChild(b);
+  });
+
+  // --- Step 2: date and time --------------------------------------------------------------
+  (function buildCalendar() {
+    var today = new Date(); today.setHours(12, 0, 0, 0);
+    var start = addDays(today, -((today.getDay() + 6) % 7)); // Monday of this week
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach(function (h) { $("cal").appendChild(el("div", { class: "cal__head" }, h)); });
+    for (var i = 0; i < 14; i++) {
+      (function (d) {
+        var weekend = d.getDay() === 0 || d.getDay() === 6;
+        var past = d <= today;
+        var b = el("button", { type: "button", class: "cal__day", "aria-pressed": "false", "aria-label": shortDate(d) });
+        b.innerHTML = "<span></span><small></small>";
+        b.querySelector("span").textContent = d.getDate();
+        b.querySelector("small").textContent = MONTHS[d.getMonth()].slice(0, 3);
+        if (weekend || past) b.disabled = true;
+        b.addEventListener("click", function () {
+          choose($("cal"), b);
+          state.day = d; state.time = null;
+          buildSlots();
+          $("to-3").disabled = true;
+          setSummary("sum-when", shortDate(d) + " · pick a time");
+        });
+        $("cal").appendChild(b);
+      })(addDays(start, i));
+    }
+  })();
+
+  function buildSlots() {
+    $("slots-am").textContent = ""; $("slots-pm").textContent = "";
+    for (var m = 9 * 60; m <= 16 * 60 + 30; m += 30) {
+      (function (t) {
+        var b = el("button", { type: "button", class: "slot", "aria-pressed": "false" }, t);
+        if (busy(state.day, t)) { b.disabled = true; b.setAttribute("aria-label", t + " taken"); }
+        b.addEventListener("click", function () {
+          Array.prototype.forEach.call(document.querySelectorAll(".slot"), function (x) { x.setAttribute("aria-pressed", "false"); });
+          b.setAttribute("aria-pressed", "true");
+          state.time = t;
+          $("to-3").disabled = false;
+          setSummary("sum-when", shortDate(state.day) + " at " + t);
+        });
+        (m < 12 * 60 ? $("slots-am") : $("slots-pm")).appendChild(b);
+      })(pad(Math.floor(m / 60)) + ":" + pad(m % 60));
+    }
+  }
+  $("to-3").addEventListener("click", function () { go(3, true); setTimeout(function () { $("first-name").focus(); }, 50); });
+
+  // --- Step 3: details --------------------------------------------------------------------
+  if (demo.extra) {
+    $("extra-label").hidden = false;
+    $("extra-name").textContent = demo.extra;
+    $("extra").placeholder = demo.extraExample;
+  }
+  $("first-name").addEventListener("input", function () {
+    var v = this.value.trim().split(/\s+/)[0];
+    if (v) setSummary("sum-name", v); else { $("sum-name").textContent = "Not added yet"; $("sum-name").classList.add("empty"); }
+  });
+  $("confirm").addEventListener("click", function () {
+    var first = $("first-name").value.trim().split(/\s+/)[0];
+    if (!first) { $("error").textContent = "Add a first name to book."; $("first-name").focus(); return; }
+    $("error").textContent = "";
+    state.first = first;
+    state.extra = demo.extra ? $("extra").value.trim() : "";
+    confirmBooking();
+  });
+
+  // --- Step 4: confirmed ------------------------------------------------------------------
+  function confirmBooking() {
+    var when = shortDate(state.day) + " at " + state.time;
+    $("done-line").textContent = state.service[0] + " · " + when + " · " + demo.name;
+    $("ref").textContent = demo.ref + "-" + String(Math.floor(1000 + Math.random() * 9000));
+    go(4, true);
+    buildScenes();
+    $("scenes").hidden = false;
+    play();
+  }
+  $("see").addEventListener("click", function () { $("scenes").scrollIntoView({ behavior: "smooth" }); });
+  $("again").addEventListener("click", function () {
+    timers.forEach(clearTimeout);
+    $("scenes").hidden = true;
+    go(1, true);
+  });
+  $("replay").addEventListener("click", play);
+
+  // Add to calendar: a small calendar file made in the browser (nothing is uploaded).
+  $("ics").addEventListener("click", function () {
+    var d = state.day, t = state.time.split(":");
+    var startAt = new Date(d.getFullYear(), d.getMonth(), d.getDate(), Number(t[0]), Number(t[1]));
+    var endAt = new Date(startAt.getTime() + state.service[2] * 60000);
+    function stamp(x) { return x.getFullYear() + pad(x.getMonth() + 1) + pad(x.getDate()) + "T" + pad(x.getHours()) + pad(x.getMinutes()) + "00"; }
+    var ics = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AIX//Demo//EN", "BEGIN:VEVENT",
+      "UID:" + $("ref").textContent + "@demo", "DTSTAMP:" + stamp(new Date()), "DTSTART:" + stamp(startAt), "DTEND:" + stamp(endAt),
+      "SUMMARY:" + state.service[0] + " at " + demo.name + " (demo)", "END:VEVENT", "END:VCALENDAR"].join("\r\n");
+    var a = document.createElement("a");
+    a.download = "booking-demo.ics";
+    a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  // --- Behind the scenes ----------------------------------------------------------------------
+  function laterReminder() {
+    var day = state.day, extra = state.extra, later, subject, body;
+    if (kind === "salon") {
+      later = addDays(day, 42);
+      subject = "Time to book your next visit at " + demo.name;
+      body = "It's nearly time for your next visit — it's due around " + longDate(later) + ".";
+    } else {
+      later = new Date(day.getFullYear() + 1, day.getMonth(), day.getDate(), 12);
+      if (kind === "vet") {
+        subject = (extra ? extra + "'s" : "Your pet's") + " vaccination or check-up is due on " + longDate(later);
+        body = "This is a reminder from " + demo.name + " that " + (extra ? extra + "'s" : "your pet's") +
+          " vaccination or check-up is due on " + longDate(later) + ".";
+      } else {
+        subject = "Your MOT is due on " + longDate(later);
+        body = "Your MOT" + (extra ? " for " + extra : "") + " is due on " + longDate(later) + ".";
+      }
+    }
+    return { date: later, subject: subject, body: body };
+  }
+
+  function buildScenes() {
+    var s = state, svc = inSentence(s.service[0]), later = laterReminder();
+    var steps = [
+      ["calendar", "Booking added to the diary", "No double bookings: the slot closes for everyone else.", "Instantly"],
+      ["mail", "Confirmation email sent to " + s.first, s.service[0] + ", " + shortDate(s.day) + " at " + s.time + ".", "Instantly"],
+      ["sheet", "Added to the reminders sheet", "So the next visit is never forgotten.", "Instantly"],
+      ["bell", "Reminder the day before", "Fewer no-shows, without a single phone call.", shortDate(addDays(s.day, -1))],
+      ["repeat", demo.laterLabel, "Brings " + s.first + " back when it's due.", longDate(later.date)],
+    ];
+    $("flow").textContent = "";
+    steps.forEach(function (st) {
+      var li = el("li");
+      li.innerHTML = '<span class="dot">' + svg(st[0]) + "</span><span><strong></strong><small></small></span><time></time>";
+      li.querySelector("strong").textContent = st[1];
+      li.querySelector("small").textContent = st[2];
+      li.querySelector("time").textContent = st[3];
+      $("flow").appendChild(li);
+    });
+
+    // The customer's phone.
+    var now = new Date();
+    $("phone-date").textContent = WEEKDAYS[now.getDay()] + " " + now.getDate() + " " + MONTHS[now.getMonth()];
+    $("phone-clock").textContent = now.getHours() + ":" + pad(now.getMinutes());
+    var notes = [
+      ["#0a84ff", "Mail", "now", demo.name, "Booking confirmed: " + s.service[0] + ", " + shortDate(s.day) + " at " + s.time],
+      ["#34c759", "Messages", shortDate(addDays(s.day, -1)), demo.name, "Reminder: your " + svc + " at " + demo.name + " is tomorrow at " + s.time + ". See you then!"],
+      ["#0a84ff", "Mail", kind === "salon" ? "in 6 weeks" : "next year", demo.name, later.subject],
+    ];
+    $("notes").textContent = "";
+    notes.forEach(function (n) {
+      var div = el("div", { class: "note" });
+      div.innerHTML = '<div class="note__app"><b><span class="app-icon"></span><span></span></b><span></span></div><strong></strong><span></span>';
+      div.querySelector(".app-icon").style.background = n[0];
+      div.querySelector(".note__app b span:last-child").textContent = n[1];
+      div.querySelector(".note__app > span").textContent = n[2];
+      div.querySelector("strong").textContent = n[3];
+      div.querySelector(".note > span").textContent = n[4];
+      $("notes").appendChild(div);
+    });
+
+    // The owner's week: the new booking among a made-up working week.
+    var week = $("week"), monday = addDays(s.day, -((s.day.getDay() + 6) % 7));
+    week.textContent = "";
+    week.appendChild(el("div"));
+    for (var i = 0; i < 5; i++) {
+      var d = addDays(monday, i);
+      week.appendChild(el("div", { class: "week__h" + (d.getTime() === s.day.getTime() ? " is-today" : "") }, DAYS[d.getDay()] + " " + d.getDate()));
+    }
+    var bookHour = Number(s.time.slice(0, 2));
+    for (var h = 9; h <= 16; h++) {
+      week.appendChild(el("div", { class: "week__t" }, pad(h) + ":00"));
+      for (var j = 0; j < 5; j++) {
+        var cell = el("div", { class: "week__c" });
+        var cd = addDays(monday, j);
+        if (cd.getTime() === s.day.getTime() && h === bookHour) {
+          var block = el("div", { class: "bookblock" });
+          if (s.time.slice(3) === "30") block.style.top = "50%";
+          block.appendChild(el("b", {}, s.time + " " + s.first));
+          block.appendChild(el("div", {}, s.service[0] + (s.extra ? " · " + s.extra : "")));
+          cell.appendChild(block);
+        } else if (cd > new Date() && busy(cd, pad(h) + ":00")) {
+          cell.appendChild(el("div", { class: "busyblock" }, "Booked"));
+        }
+        week.appendChild(cell);
+      }
+    }
+
+    // The reminders sheet and the reminder email, worded exactly as the sheet sends it.
+    var sheet = $("sheet");
+    sheet.textContent = "";
+    var head = el("tr");
+    ["Name", "Email", demo.extra || "Note", "Due", "No reminders"].forEach(function (x) { head.appendChild(el("th", {}, x)); });
+    var row = el("tr", { class: "new" });
+    [s.first, "(their email)", s.extra || "", longDate(later.date), ""].forEach(function (x) { row.appendChild(el("td", {}, x)); });
+    sheet.appendChild(head);
+    sheet.appendChild(row);
+
+    var mail = $("mail-later");
+    mail.textContent = "";
+    mail.appendChild(el("span", { class: "subject" }, later.subject));
+    mail.appendChild(el("span", { class: "from" }, "From " + demo.name + " · " + longDate(later.date)));
+    mail.appendChild(document.createTextNode(
+      "Hi " + s.first + ",\n\n" + later.body + "\n\nBook a time with " + demo.name +
+      " here: [booking link]\n\nThanks,\n" + demo.name + "\n\nReply 'stop' and we won't send these again."));
+  }
+
+  function play() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    var items = Array.prototype.slice.call($("flow").children);
+    var notes = Array.prototype.slice.call($("notes").children);
+    items.concat(notes).forEach(function (x) { x.classList.remove("is-on"); });
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var gap = reduce ? 0 : 650;
+    items.forEach(function (li, i) { timers.push(setTimeout(function () { li.classList.add("is-on"); }, 300 + i * gap)); });
+    // Phone notifications arrive with the matching steps: confirmation, day before, next one.
+    [1, 3, 4].forEach(function (stepIndex, k) {
+      timers.push(setTimeout(function () { notes[k].classList.add("is-on"); }, 300 + stepIndex * gap + 150));
+    });
+  }
+
+  go(1);
+</script>
+</body>
+</html>
