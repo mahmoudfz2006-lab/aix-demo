@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIX demo: website assistant</title>
+<meta name="description" content="Try the website assistant AIX sets up for small firms: instant answers, calls booked into the diary, and follow-ups. A demo with a made-up firm.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg: #f4f4f7;
+    --card: #ffffff;
+    --text: #0e0e12;
+    --muted: #6b6b75;
+    --faint: #a0a0aa;
+    --line: #e4e4ea;
+    --soft: #f2f2f6;
+    --tone: #1f6bff;
+    --tone-2: #6a5cff;
+    --radius: 20px;
+    --shadow: 0 1px 2px rgba(15, 15, 30, 0.04), 0 8px 28px rgba(15, 15, 30, 0.07);
+    --ease: cubic-bezier(0.2, 0, 0, 1);
+    --ink: #08080b;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  [hidden] { display: none !important; }
+
+  /* --- Demo bar -------------------------------------------------------------------- */
+  .demo-bar { background: var(--ink); color: #e9e9ef; font-size: 13.5px; position: relative; z-index: 2; }
+  .demo-bar__inner {
+    max-width: 1120px; margin: 0 auto; padding: 10px 16px;
+    display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; justify-content: space-between;
+  }
+  .demo-bar strong { color: #fff; }
+  .demo-tag {
+    display: inline-block; margin-right: 8px; padding: 2px 9px; border-radius: 999px;
+    background: linear-gradient(90deg, #ff9f0a, #ff375f, #bf5af2, #0a84ff);
+    color: #fff; font-weight: 750; font-size: 11px; letter-spacing: 0.06em;
+  }
+  .switch { display: flex; gap: 6px; }
+  .switch a {
+    color: #b9b9c4; text-decoration: none; padding: 4px 12px; border-radius: 999px;
+    border: 1px solid #34343c; transition: all 0.2s var(--ease);
+  }
+  .switch a:hover { color: #fff; border-color: #6a6a76; }
+  .switch a[aria-current="page"] { color: var(--ink); background: #fff; border-color: #fff; font-weight: 600; }
+
+  /* --- Business cover ---------------------------------------------------------------- */
+  .cover {
+    position: relative; overflow: hidden;
+    background:
+      radial-gradient(900px 340px at 85% -40%, color-mix(in srgb, var(--tone-2) 55%, transparent), transparent 70%),
+      radial-gradient(700px 300px at 0% 120%, color-mix(in srgb, var(--tone) 60%, transparent), transparent 70%),
+      linear-gradient(135deg, #0d0f1a, #141826);
+    color: #fff;
+  }
+  .cover::after {
+    content: ""; position: absolute; inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+    background-size: 22px 22px; pointer-events: none;
+  }
+  .cover__inner { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 40px 16px 92px; display: flex; gap: 20px; align-items: center; }
+  .logo {
+    flex-shrink: 0; width: 72px; height: 72px; border-radius: 20px;
+    display: grid; place-items: center;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2));
+    box-shadow: 0 10px 30px color-mix(in srgb, var(--tone) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+  .logo svg { width: 36px; height: 36px; }
+  .cover h1 { margin: 0; font-size: clamp(26px, 4vw, 36px); letter-spacing: -0.02em; line-height: 1.1; }
+  .cover p { margin: 6px 0 0; color: rgba(255, 255, 255, 0.72); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .chip {
+    font-size: 12.5px; padding: 4px 10px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.16);
+    -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  }
+  .chip b { color: #6dffa8; font-weight: 600; }
+
+  /* --- Layout -------------------------------------------------------------------- */
+  main { max-width: 1120px; margin: -64px auto 0; padding: 0 16px 64px; position: relative; z-index: 1; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } .summary { position: static !important; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  .panel { padding: 24px; }
+
+  /* --- Progress -------------------------------------------------------------------- */
+  .progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 22px; }
+  .progress li { list-style: none; font-size: 12.5px; color: var(--faint); font-weight: 600; }
+  .progress li::before {
+    content: ""; display: block; height: 4px; border-radius: 4px; margin-bottom: 8px;
+    background: var(--line); transition: background 0.35s var(--ease);
+  }
+  .progress li.is-done, .progress li.is-now { color: var(--text); }
+  .progress li.is-done::before, .progress li.is-now::before { background: linear-gradient(90deg, var(--tone), var(--tone-2)); }
+  .progress { padding: 0; margin-top: 0; }
+
+  .step { animation: rise 0.35s var(--ease); }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  .step h2 { margin: 0 0 4px; font-size: 21px; letter-spacing: -0.01em; }
+  .step .hint { margin: 0 0 18px; color: var(--muted); }
+
+  /* --- Services -------------------------------------------------------------------- */
+  .services { display: grid; gap: 12px; }
+  .service {
+    display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center;
+    text-align: left; padding: 14px 16px; border-radius: 16px;
+    border: 1px solid var(--line); background: var(--card);
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
+  }
+  .service:hover { border-color: color-mix(in srgb, var(--tone) 50%, var(--line)); transform: translateY(-1px); }
+  .service[aria-pressed="true"] { border-color: var(--tone); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone) 18%, transparent); }
+  .service__icon {
+    width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+    background: color-mix(in srgb, var(--tone) 10%, transparent); color: var(--tone);
+  }
+  .service__icon svg { width: 22px; height: 22px; }
+  .service strong { display: block; font-size: 15.5px; }
+  .service small { color: var(--muted); }
+  .duration { font-size: 13px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 5px; }
+
+  /* --- Calendar and times ---------------------------------------------------------- */
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 18px; max-width: 470px; }
+  .cal__head { font-size: 11.5px; color: var(--faint); text-align: center; font-weight: 600; padding-bottom: 2px; }
+  .cal__day {
+    aspect-ratio: 1 / 0.9; border-radius: 12px; border: 1px solid var(--line); background: var(--card);
+    display: grid; place-items: center; align-content: center; gap: 0; font-weight: 600; font-size: 15px;
+    transition: all 0.18s var(--ease);
+  }
+  .cal__day small { font-size: 10.5px; font-weight: 500; color: var(--muted); }
+  .cal__day:disabled { color: #c8c8d0; background: var(--soft); border-color: transparent; cursor: not-allowed; }
+  .cal__day:not(:disabled):hover { border-color: var(--tone); }
+  .cal__day[aria-pressed="true"] { background: linear-gradient(140deg, var(--tone), var(--tone-2)); color: #fff; border-color: transparent; }
+  .cal__day[aria-pressed="true"] small { color: rgba(255, 255, 255, 0.8); }
+  .slot-group { margin-bottom: 14px; }
+  .slot-group h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
+  .slots { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); }
+  .slot {
+    padding: 9px 4px; border-radius: 11px; border: 1px solid var(--line); background: var(--card);
+    font-variant-numeric: tabular-nums; font-weight: 550; transition: all 0.18s var(--ease);
+  }
+  .slot:hover:not(:disabled) { border-color: var(--tone); color: var(--tone); }
+  .slot:disabled { color: #c3c3cb; text-decoration: line-through; background: var(--soft); border-color: transparent; cursor: not-allowed; }
+  .slot[aria-pressed="true"] { background: var(--tone); border-color: var(--tone); color: #fff; }
+
+  /* --- Details ---------------------------------------------------------------------- */
+  .fields { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  label { display: grid; gap: 6px; font-size: 13.5px; font-weight: 600; }
+  label span.opt { color: var(--faint); font-weight: 500; }
+  input {
+    padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); font-weight: 400;
+    transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+  }
+  input:focus { outline: none; border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 16%, transparent); }
+  .privacy {
+    display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; padding: 12px 14px;
+    border-radius: 12px; background: var(--soft); color: var(--muted); font-size: 13.5px;
+  }
+  .privacy svg { flex-shrink: 0; width: 18px; height: 18px; margin-top: 1px; color: var(--tone); }
+
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 22px; flex-wrap: wrap; }
+  .back { background: none; border: 0; color: var(--muted); padding: 8px 2px; font-weight: 600; }
+  .back:hover { color: var(--text); }
+  .primary {
+    padding: 13px 22px; border: 0; border-radius: 14px; font-weight: 650; color: #fff;
+    background: linear-gradient(135deg, var(--tone), var(--tone-2));
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--tone) 35%, transparent);
+    transition: transform 0.15s var(--ease), box-shadow 0.15s var(--ease), opacity 0.2s;
+  }
+  .primary:hover:not(:disabled) { transform: translateY(-1px); }
+  .primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+  .error { color: #d70015; font-size: 13.5px; }
+
+  /* --- Summary sidebar ---------------------------------------------------------------- */
+  .summary { position: sticky; top: 16px; padding: 22px; }
+  .summary h2 { margin: 0 0 14px; font-size: 15px; }
+  .summary dl { margin: 0; display: grid; gap: 12px; }
+  .summary dt { font-size: 12px; color: var(--faint); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .summary dd { margin: 2px 0 0; font-weight: 600; }
+  .summary dd.empty { color: #c3c3cb; font-weight: 500; }
+  .includes { margin: 18px 0 0; padding: 16px 0 0; border-top: 1px solid var(--line); display: grid; gap: 9px; font-size: 13.5px; color: var(--muted); }
+  .includes div { display: flex; gap: 9px; align-items: center; }
+  .includes svg { width: 16px; height: 16px; color: var(--tone); flex-shrink: 0; }
+
+  /* --- Confirmation -------------------------------------------------------------------- */
+  .done { text-align: center; padding: 34px 24px 28px; }
+  .check {
+    width: 74px; height: 74px; margin: 0 auto 14px; border-radius: 50%;
+    display: grid; place-items: center; color: #fff;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2));
+    box-shadow: 0 12px 30px color-mix(in srgb, var(--tone) 40%, transparent);
+    animation: pop 0.5s var(--ease);
+  }
+  .check svg { width: 36px; height: 36px; stroke-dasharray: 40; stroke-dashoffset: 40; animation: draw 0.45s 0.2s var(--ease) forwards; }
+  @keyframes pop { from { transform: scale(0.6); opacity: 0; } }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .done h2 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+  .done .when-line { margin: 6px 0 0; color: var(--muted); }
+  .ticket {
+    margin: 22px auto 0; max-width: 460px; text-align: left; border-radius: 16px; border: 1px dashed color-mix(in srgb, var(--tone) 45%, var(--line));
+    background: color-mix(in srgb, var(--tone) 5%, transparent); padding: 16px 18px; display: grid; grid-template-columns: 1fr auto; gap: 6px 14px;
+  }
+  .ticket .ref { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-weight: 700; letter-spacing: 0.06em; }
+  .ticket small { color: var(--muted); }
+  .done .actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+  .ghost { padding: 12px 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); font-weight: 600; }
+  .ghost:hover { border-color: var(--tone); color: var(--tone); }
+
+  /* --- Behind the scenes (AIX, dark) --------------------------------------------------- */
+  .scenes {
+    margin-top: 28px; border-radius: 28px; padding: 34px 24px; color: #e9e9ef; overflow: hidden; position: relative;
+    background:
+      radial-gradient(700px 300px at 100% 0%, rgba(191, 90, 242, 0.22), transparent 70%),
+      radial-gradient(600px 300px at 0% 100%, rgba(10, 132, 255, 0.2), transparent 70%),
+      var(--ink);
+  }
+  .scenes__head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: end; margin-bottom: 24px; }
+  .eyebrow { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700; color: #9d9dff; }
+  .scenes h2 { margin: 4px 0 0; font-size: clamp(22px, 3vw, 28px); letter-spacing: -0.02em; color: #fff; }
+  .scenes p.lead { margin: 6px 0 0; color: #a9a9b6; max-width: 560px; }
+  .replay { background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.16); color: #fff; padding: 9px 14px; border-radius: 12px; font-weight: 600; }
+  .scenes__grid { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 22px; }
+  @media (max-width: 900px) { .scenes__grid { grid-template-columns: 1fr; } }
+
+  .flow { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .flow li {
+    display: grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items: center;
+    padding: 12px 14px; border-radius: 14px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.07);
+    opacity: 0.32; transform: translateX(-6px); transition: all 0.45s var(--ease);
+  }
+  .flow li.is-on { opacity: 1; transform: none; border-color: rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.07); }
+  .flow .dot {
+    width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+    background: rgba(255, 255, 255, 0.08); color: #c9c9ff;
+  }
+  .flow li.is-on .dot { background: linear-gradient(140deg, #5e5ce6, #bf5af2); color: #fff; box-shadow: 0 0 18px rgba(191, 90, 242, 0.45); }
+  .flow .dot svg { width: 17px; height: 17px; }
+  .flow strong { display: block; color: #fff; font-size: 14.5px; }
+  .flow small { color: #9a9aa8; }
+  .flow time { font-size: 12px; color: #8d8d9b; white-space: nowrap; }
+
+  /* Phone */
+  .phone {
+    width: 100%; max-width: 330px; margin: 0 auto; border-radius: 44px; padding: 12px;
+    background: linear-gradient(160deg, #2b2b33, #121217); box-shadow: 0 30px 60px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  }
+  .phone__screen {
+    border-radius: 34px; min-height: 520px; padding: 16px 12px 18px; position: relative; overflow: hidden;
+    background: linear-gradient(170deg, color-mix(in srgb, var(--tone) 60%, #1b1440), #1a1030 60%, #0b0b12);
+  }
+  .phone__island { width: 96px; height: 26px; border-radius: 20px; background: #000; margin: 0 auto 18px; }
+  .phone__clock { text-align: center; color: #fff; font-size: 54px; font-weight: 300; letter-spacing: -0.03em; line-height: 1; }
+  .phone__date { text-align: center; color: rgba(255, 255, 255, 0.8); font-size: 14px; margin: 4px 0 20px; }
+  .note {
+    border-radius: 18px; padding: 11px 13px; margin-bottom: 9px; color: #111;
+    background: rgba(255, 255, 255, 0.82); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+    opacity: 0; transform: translateY(10px) scale(0.98); transition: all 0.5s var(--ease); font-size: 13px; line-height: 1.4;
+  }
+  .note.is-on { opacity: 1; transform: none; }
+  .note__app { display: flex; justify-content: space-between; font-size: 11.5px; color: #555; margin-bottom: 3px; }
+  .note__app b { color: #222; font-weight: 600; display: inline-flex; gap: 6px; align-items: center; }
+  .app-icon { width: 16px; height: 16px; border-radius: 5px; display: inline-block; }
+  .note strong { display: block; font-size: 13.5px; }
+
+  /* Owner view */
+  .owner { margin-top: 26px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 18px; }
+  @media (max-width: 900px) { .owner { grid-template-columns: 1fr; } }
+  .owner h3 { margin: 0 0 10px; color: #fff; font-size: 15px; }
+  .pane { border-radius: 18px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08); padding: 16px; overflow-x: auto; }
+  .week { display: grid; grid-template-columns: 46px repeat(5, minmax(56px, 1fr)); font-size: 12px; min-width: 380px; }
+  .week__h { color: #9a9aa8; text-align: center; padding-bottom: 6px; font-weight: 600; }
+  .week__h.is-today { color: #fff; }
+  .week__t { color: #6f6f7c; padding-top: 2px; height: 30px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+  .week__c { height: 30px; border-top: 1px solid rgba(255, 255, 255, 0.06); border-left: 1px solid rgba(255, 255, 255, 0.04); position: relative; }
+  .bookblock {
+    position: absolute; left: 3px; right: 3px; top: 2px; z-index: 1; border-radius: 8px; padding: 4px 6px; font-size: 11px; line-height: 1.25; color: #fff;
+    overflow: hidden; overflow-wrap: anywhere;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2)); box-shadow: 0 6px 18px color-mix(in srgb, var(--tone) 45%, transparent);
+    animation: pop 0.5s var(--ease);
+  }
+  .busyblock {
+    position: absolute; left: 3px; right: 3px; top: 3px; bottom: 3px; border-radius: 7px;
+    background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.06);
+    color: #8d8d9b; font-size: 10.5px; padding: 3px 6px; overflow: hidden;
+  }
+  .sheet { width: 100%; border-collapse: collapse; font-size: 12.5px; min-width: 360px; }
+  .sheet th, .sheet td { border: 1px solid rgba(255, 255, 255, 0.1); padding: 7px 8px; text-align: left; }
+  .sheet th { color: #9a9aa8; font-weight: 600; background: rgba(255, 255, 255, 0.04); }
+  .sheet td { color: #fff; }
+  .sheet tr.new td { background: color-mix(in srgb, var(--tone) 22%, transparent); }
+  .mail { margin-top: 14px; border-radius: 14px; background: #fff; color: #111; padding: 14px 16px; font-size: 13.5px; white-space: pre-line; }
+  .mail .subject { font-weight: 700; display: block; white-space: normal; margin-bottom: 6px; }
+  .mail .from { color: #777; font-size: 12px; display: block; margin-bottom: 8px; white-space: normal; }
+
+  /* --- Footer ---------------------------------------------------------------------- */
+  .aix {
+    margin-top: 28px; border-radius: 28px; padding: 30px 24px; text-align: center; background: var(--card);
+    border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .wordmark {
+    font-weight: 800; letter-spacing: 0.08em; font-size: 22px;
+    background: linear-gradient(90deg, #ff9f0a, #ff375f, #bf5af2, #5e5ce6, #0a84ff, #64d2ff);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .aix p { margin: 8px auto 0; max-width: 620px; color: var(--muted); }
+  .aix .points { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0 20px; }
+  .aix .points span { padding: 7px 12px; border-radius: 999px; background: var(--soft); font-size: 13.5px; font-weight: 600; }
+  .cta {
+    display: inline-flex; gap: 8px; align-items: center; padding: 13px 22px; border-radius: 14px; text-decoration: none; color: #fff; font-weight: 650;
+    background: linear-gradient(135deg, #ff375f, #bf5af2 45%, #0a84ff);
+    box-shadow: 0 10px 26px rgba(191, 90, 242, 0.35);
+  }
+  .aix small { display: block; margin-top: 12px; color: var(--faint); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    .check svg { stroke-dashoffset: 0; }
+  }
+
+  /* --- Website assistant ------------------------------------------------------------- */
+  .chat { display: flex; flex-direction: column; overflow: hidden; }
+  .chat__head { display: flex; gap: 12px; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .chat__avatar {
+    width: 42px; height: 42px; border-radius: 13px; display: grid; place-items: center; color: #fff; flex-shrink: 0;
+    background: linear-gradient(140deg, var(--tone), var(--tone-2));
+    box-shadow: 0 6px 18px color-mix(in srgb, var(--tone) 35%, transparent);
+  }
+  .chat__avatar svg { width: 21px; height: 21px; }
+  .chat__head strong { display: block; font-size: 15.5px; }
+  .chat__head small { color: var(--muted); display: flex; gap: 6px; align-items: center; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.18); }
+  .log { padding: 18px; display: flex; flex-direction: column; gap: 10px; min-height: 340px; max-height: 520px; overflow-y: auto; }
+  .msg { max-width: 84%; padding: 10px 14px; border-radius: 18px; animation: rise 0.3s var(--ease); }
+  .msg--bot { background: var(--soft); border-bottom-left-radius: 6px; align-self: flex-start; }
+  .msg--you {
+    background: linear-gradient(135deg, var(--tone), var(--tone-2)); color: #fff;
+    border-bottom-right-radius: 6px; align-self: flex-end;
+  }
+  .msg--done { background: color-mix(in srgb, #34c759 12%, var(--card)); border: 1px solid color-mix(in srgb, #34c759 35%, transparent); }
+  .msg .example { display: block; margin-top: 6px; font-size: 12px; color: var(--muted); font-style: italic; }
+  .typing { display: inline-flex; gap: 4px; padding: 14px 16px; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); animation: blink 1s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes blink { 0%, 80%, 100% { opacity: 0.3; } 40% { opacity: 1; } }
+  .choices { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 18px; }
+  .choice {
+    padding: 9px 14px; border-radius: 999px; font-weight: 600; font-size: 14px; background: var(--card); color: var(--tone);
+    border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--line)); transition: all 0.18s var(--ease);
+    animation: rise 0.3s var(--ease);
+  }
+  .choice:hover { background: color-mix(in srgb, var(--tone) 9%, var(--card)); transform: translateY(-1px); }
+  .name-form { display: flex; gap: 8px; padding: 0 18px 8px; }
+  .name-form input { flex: 1; min-width: 0; }
+  .send {
+    padding: 0 18px; border: 0; border-radius: 12px; color: #fff; font-weight: 650;
+    background: linear-gradient(135deg, var(--tone), var(--tone-2));
+  }
+  .name-note { margin: 0; padding: 0 18px 16px; font-size: 12.5px; color: var(--muted); }
+  .name-note.error { color: #d70015; }
+</style>
+</head>
+<body>
+<div class="demo-bar" role="note">
+  <div class="demo-bar__inner">
+    <span><span class="demo-tag">DEMO</span><span id="demo-about">This is a demo of a made-up firm, to show what people contacting you would see.</span> <strong>Nothing you type is saved or sent.</strong></span>
+    <nav class="switch" aria-label="Demo versions">
+      <a href="?for=lawyer" data-for="lawyer">Law firm</a>
+      <a href="?for=estate-agent" data-for="estate-agent">Estate agent</a>
+      <a href="?for=accountant" data-for="accountant">Accountant</a>
+    </nav>
+  </div>
+</div>
+
+<header class="cover">
+  <div class="cover__inner">
+    <div class="logo" id="logo" aria-hidden="true"></div>
+    <div>
+      <h1 id="biz-name"></h1>
+      <p id="biz-line"></p>
+      <div class="chips">
+        <span class="chip"><b>●</b> Replies in seconds, day and night</span>
+        <span class="chip" id="biz-hours"></span>
+        <span class="chip">Calls booked for you</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="layout">
+    <section class="card chat" aria-label="Website assistant">
+      <div class="chat__head">
+        <div class="chat__avatar" id="avatar" aria-hidden="true"></div>
+        <div>
+          <strong id="chat-title"></strong>
+          <small><span class="live"></span>Online now · replies instantly</small>
+        </div>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="choices" id="choices"></div>
+      <form class="name-form" id="name-form" hidden>
+        <label class="visually-hidden" for="first-name">First name</label>
+        <input id="first-name" autocomplete="off" placeholder="Your first name">
+        <button class="send" type="submit">Send</button>
+      </form>
+      <p class="name-note" id="name-note" hidden>In the real assistant, your email or phone number goes here too, for the confirmation and reminder. This demo doesn't ask for them.</p>
+    </section>
+
+    <aside class="card summary" aria-label="What the assistant has noted">
+      <h2>What the assistant has noted</h2>
+      <dl>
+        <div><dt>About</dt><dd id="sum-topic" class="empty">Not yet</dd></div>
+        <div><dt id="sum-soon-label">How soon</dt><dd id="sum-soon" class="empty">Not yet</dd></div>
+        <div><dt>Name</dt><dd id="sum-name" class="empty">Not yet</dd></div>
+        <div><dt>Call</dt><dd id="sum-call" class="empty">Not booked yet</dd></div>
+      </dl>
+      <div class="includes">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Replies in seconds, day and night</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Answers from your own website</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Calls booked into your diary</div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>One follow-up if they don't book</div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="scenes" id="scenes" hidden aria-labelledby="scenes-title">
+    <div class="scenes__head">
+      <div>
+        <div class="eyebrow">Behind the scenes · set up by AIX</div>
+        <h2 id="scenes-title">What happens automatically</h2>
+        <p class="lead">Nobody had to be at a desk. In the real setup these go to the person and the team; in this demo they're only shown here.</p>
+      </div>
+      <button class="replay" type="button" id="replay">↻ Replay</button>
+    </div>
+
+    <div class="scenes__grid">
+      <ol class="flow" id="flow"></ol>
+      <div class="phone" aria-label="Their phone">
+        <div class="phone__screen">
+          <div class="phone__island"></div>
+          <div class="phone__clock" id="phone-clock">9:41</div>
+          <div class="phone__date" id="phone-date"></div>
+          <div id="notes"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="owner">
+      <div>
+        <h3>What <span id="owner-biz"></span> gets: one tidy summary</h3>
+        <div class="mail" id="summary-mail"></div>
+      </div>
+      <div>
+        <h3>And the call, already in the diary</h3>
+        <div class="pane"><div class="week" id="week"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="aix">
+    <div class="wordmark">AIX</div>
+    <p>This demo was made by AIX, a small automation studio. We set up a website assistant that
+      answers common questions straight away from your own information, books calls into your
+      diary and follows up automatically, so nobody who gets in touch waits for a reply.</p>
+    <div class="points"><span>Instant replies</span><span>Answers from your website</span><span>Calls booked</span><span>Follow-ups</span></div>
+    <a class="cta" href="mailto:aixagent001@gmail.com?subject=Website%20assistant%20demo">Talk to AIX about this →</a>
+    <small>aixagent001@gmail.com</small>
+  </footer>
+</main>
+
+<script>
+  // Everything below runs in this page only. Nothing is stored and nothing leaves the browser.
+  // The assistant here is scripted: you choose from buttons, so it never pretends to read
+  // free text. The real assistant answers from the firm's own website and documents.
+  var ICONS = {
+    scale: '<path d="M12 3v18M7 21h10M4 7h16M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"/>',
+    home: '<path d="M3 11l9-8 9 8v10H3z"/><path d="M9 21v-6h6v6"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/>',
+    chat: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.3A8 8 0 1 1 21 12z"/>',
+    bolt: '<path d="M13 2L4 14h7l-1 8 9-12h-7z"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+    mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 6L2 7"/>',
+    bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+    repeat: '<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+  };
+  function svg(name, width) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (width || 2) +
+      '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + "</svg>";
+  }
+
+  var OPEN_ALL_HOURS = "This assistant answers any time, day or night, and can book you a call.";
+  var DEMOS = {
+    lawyer: {
+      name: "Example Law",
+      line: "Friendly, straightforward legal advice.",
+      hours: "Mon–Fri 9:00–17:30",
+      logo: "scale",
+      tone: "#5e5ce6", tone2: "#0a84ff",
+      topics: ["Family or divorce", "Buying or selling a home", "Wills and estates", "Employment", "Something else"],
+      soonQuestion: "Thanks. How soon do you need help?",
+      soonLabel: "How soon",
+      soon: ["This week", "This month", "Just looking into it"],
+      faqs: [
+        ["Is the first call free?", "Yes. The first short call is free: you tell us what's happening, and we tell you how we can help and what happens next."],
+        ["Where are you based?", "In the town centre, two minutes from the station. We're just as happy to talk by phone or video."],
+        ["When are you open?", "Monday to Friday, 9:00 to 17:30. " + OPEN_ALL_HOURS],
+      ],
+    },
+    "estate-agent": {
+      name: "Example Homes",
+      line: "Homes to buy and rent, and honest valuations.",
+      hours: "Mon–Sat 9:00–17:30",
+      logo: "home",
+      tone: "#ff7a00", tone2: "#ff375f",
+      topics: ["Book a viewing", "Value my home", "Sell my home", "Rent out my property", "Something else"],
+      soonQuestion: "Thanks. When are you hoping to move?",
+      soonLabel: "Moving",
+      soon: ["Within a month", "In 1–3 months", "Just looking"],
+      faqs: [
+        ["Can I view at the weekend?", "Yes. We hold viewings on Saturday mornings as well as during the week."],
+        ["Do you look after rentals?", "Yes. We find tenants, check references and can manage the property for you."],
+        ["When are you open?", "Monday to Saturday, 9:00 to 17:30. " + OPEN_ALL_HOURS],
+      ],
+    },
+    accountant: {
+      name: "Example Accounts",
+      line: "Accounts, tax and payroll for small businesses.",
+      hours: "Mon–Fri 9:00–17:00",
+      logo: "chart",
+      tone: "#00a383", tone2: "#13b6d8",
+      topics: ["Tax return", "Bookkeeping", "Payroll", "Starting a business", "Something else"],
+      soonQuestion: "Thanks. When do you need it done?",
+      soonLabel: "Needed",
+      soon: ["Soon: a deadline is coming", "In the next few months", "Just looking into it"],
+      faqs: [
+        ["Do you work with freelancers?", "Yes. We work with freelancers and the self-employed as well as small companies."],
+        ["Can we work together online?", "Yes. Most clients send their papers online, and we talk by phone or video."],
+        ["When are you open?", "Monday to Friday, 9:00 to 17:00. " + OPEN_ALL_HOURS],
+      ],
+    },
+  };
+  var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
+    "September", "October", "November", "December"];
+  var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  var params = new URLSearchParams(location.search);
+  var kind = params.get("for");
+  if (!Object.prototype.hasOwnProperty.call(DEMOS, kind)) kind = "lawyer";
+  // ?name= puts the firm's own name on the page (owner decision 2026-11-20). Only ever shown
+  // as text; empty or longer than 60 characters: the made-up firm.
+  var named = (params.get("name") || "").replace(/\s+/g, " ").trim();
+  if (named.length > 60) named = "";
+  var demo = Object.assign({}, DEMOS[kind], named ? { name: named } : {});
+  var state = { topic: null, soon: null, first: "", slot: null, asked: [] };
+  var timers = [];
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function $(id) { return document.getElementById(id); }
+  function el(tag, attrs, text) {
+    var node = document.createElement(tag);
+    Object.keys(attrs || {}).forEach(function (k) { node.setAttribute(k, attrs[k]); });
+    if (text != null) node.textContent = text;
+    return node;
+  }
+  function pad(n) { return String(n).padStart(2, "0"); }
+  function shortDate(d) { return DAYS[d.getDay()] + " " + d.getDate() + " " + MONTHS[d.getMonth()].slice(0, 3); }
+  function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12); }
+  function nextWeekday(d) { do { d = addDays(d, 1); } while (d.getDay() === 0 || d.getDay() === 6); return d; }
+  function busy(day, time) {
+    var seed = day.getDate() * 131 + day.getMonth() * 17 + Number(time.replace(":", "")) * 7;
+    var x = Math.sin(seed * 12.9898) * 43758.5453;
+    return x - Math.floor(x) < 0.25;
+  }
+  function setSummary(id, value) {
+    var dd = $(id);
+    dd.textContent = value;
+    dd.classList.remove("empty");
+  }
+  function scrollLog() { var log = $("log"); log.scrollTop = log.scrollHeight; }
+
+  // --- The conversation -------------------------------------------------------------------
+  function you(words) {
+    $("log").appendChild(el("div", { class: "msg msg--you" }, words));
+    scrollLog();
+  }
+  // The assistant "types" for a moment, then answers. `example` marks a made-up fact on a
+  // preview with a real firm's name.
+  function bot(words, then, example, done) {
+    var dots = el("div", { class: "msg msg--bot typing", "aria-label": "Typing" });
+    [0, 1, 2].forEach(function () { dots.appendChild(el("span")); });
+    $("log").appendChild(dots);
+    scrollLog();
+    timers.push(setTimeout(function () {
+      dots.remove();
+      var msg = el("div", { class: "msg msg--bot" + (done ? " msg--done" : "") }, words);
+      if (example && named) msg.appendChild(el("span", { class: "example" }, "Example answer: yours would come from your own website."));
+      $("log").appendChild(msg);
+      scrollLog();
+      if (then) then();
+    }, reduce ? 0 : 650));
+  }
+  function offer(options) {
+    var box = $("choices");
+    box.textContent = "";
+    options.forEach(function (option) {
+      var b = el("button", { type: "button", class: "choice" }, option[0]);
+      b.addEventListener("click", function () {
+        box.textContent = "";
+        you(option[0]);
+        option[1]();
+      });
+      box.appendChild(b);
+    });
+  }
+
+  function greet() {
+    bot("Hi! I'm the assistant for " + demo.name + ". I can answer common questions, or help you book a call with the team.", function () {
+      offer([["Ask a question", ask], ["I need help with something", help]]);
+    });
+  }
+  function ask() {
+    bot("Of course. What would you like to know?", function () {
+      offer(demo.faqs.map(function (f) { return [f[0], function () { answer(f); }]; })
+        .concat([["Book a call instead", help]]));
+    });
+  }
+  function answer(faq) {
+    state.asked.push(faq[0]);
+    bot(faq[1], function () { offer([["Another question", ask], ["Book a call", help]]); }, true);
+  }
+  function help() {
+    bot("Happy to help. What's it about?", function () {
+      offer(demo.topics.map(function (t) { return [t, function () { topic(t); }]; }));
+    });
+  }
+  function topic(t) {
+    state.topic = t;
+    setSummary("sum-topic", t);
+    bot(demo.soonQuestion, function () {
+      offer(demo.soon.map(function (s) { return [s, function () { soon(s); }]; }));
+    });
+  }
+  function soon(s) {
+    state.soon = s;
+    setSummary("sum-soon", s);
+    bot("Great. What's your first name?", function () {
+      $("name-form").hidden = false;
+      $("name-note").hidden = false;
+      $("first-name").focus();
+    });
+  }
+  $("name-form").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var given = $("first-name").value.trim().split(/\s+/)[0].slice(0, 30);
+    var note = $("name-note");
+    if (!given) {
+      note.textContent = "Add a first name to carry on.";
+      note.classList.add("error");
+      return;
+    }
+    state.first = given;
+    setSummary("sum-name", given);
+    $("name-form").hidden = true;
+    note.hidden = true;
+    you(given);
+    bot("Thanks, " + given + ". Pick a time for a 15-minute call with " + demo.name + ":", function () {
+      offer(slots().map(function (slot) { return [slot.label, function () { book(slot); }]; }));
+    });
+  });
+  function slots() {
+    var one = nextWeekday(new Date()), two = nextWeekday(one);
+    return [[one, "10:00"], [one, "14:30"], [two, "11:00"], [two, "16:00"]].map(function (s) {
+      return { day: s[0], time: s[1], label: shortDate(s[0]) + ", " + s[1] };
+    });
+  }
+  function book(slot) {
+    state.slot = slot;
+    setSummary("sum-call", slot.label + " · 15 min");
+    bot("Booked: a 15-minute call on " + slot.label + ". You'll get a confirmation by email, and a reminder before the call.", function () {
+      offer([["Start again", restart]]);
+      buildScenes();
+      $("scenes").hidden = false;
+      play();
+      setTimeout(function () { $("scenes").scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }); }, reduce ? 0 : 900);
+    }, false, true);
+  }
+  function restart() {
+    timers.forEach(clearTimeout);
+    timers = [];
+    state = { topic: null, soon: null, first: "", slot: null, asked: [] };
+    $("log").textContent = "";
+    $("first-name").value = "";
+    $("name-note").textContent = "In the real assistant, your email or phone number goes here too, for the confirmation and reminder. This demo doesn't ask for them.";
+    $("name-note").classList.remove("error");
+    [["sum-topic", "Not yet"], ["sum-soon", "Not yet"], ["sum-name", "Not yet"], ["sum-call", "Not booked yet"]].forEach(function (x) {
+      $(x[0]).textContent = x[1];
+      $(x[0]).classList.add("empty");
+    });
+    $("scenes").hidden = true;
+    greet();
+  }
+
+  // --- Behind the scenes ------------------------------------------------------------------
+  function buildScenes() {
+    var s = state, slot = s.slot;
+    var hour = Number(slot.time.slice(0, 2)), mins = slot.time.slice(3);
+    var before = pad(hour - 1) + ":" + mins;
+    var steps = [
+      ["bolt", "Answered in under a second", "Even at 11pm or on a Sunday, nobody waits until the morning.", "Instantly"],
+      ["mail", "Summary sent to the team", s.first + ": " + s.topic + ", " + s.soon.toLowerCase() + ".", "Instantly"],
+      ["calendar", "Call added to the diary", slot.label + ", 15 minutes. No back-and-forth to find a time.", "Instantly"],
+      ["bell", "Reminder before the call", "Sent to " + s.first + " an hour before, so the call happens.", shortDate(slot.day) + " " + before],
+      ["repeat", "One follow-up for anyone who doesn't book", "People who leave without booking get one friendly email the next day.", "Next day"],
+    ];
+    $("flow").textContent = "";
+    steps.forEach(function (st) {
+      var li = el("li");
+      li.innerHTML = '<span class="dot">' + svg(st[0]) + "</span><span><strong></strong><small></small></span><time></time>";
+      li.querySelector("strong").textContent = st[1];
+      li.querySelector("small").textContent = st[2];
+      li.querySelector("time").textContent = st[3];
+      $("flow").appendChild(li);
+    });
+
+    // Their phone.
+    var now = new Date();
+    $("phone-date").textContent = WEEKDAYS[now.getDay()] + " " + now.getDate() + " " + MONTHS[now.getMonth()];
+    $("phone-clock").textContent = now.getHours() + ":" + pad(now.getMinutes());
+    var notes = [
+      ["#0a84ff", "Mail", "now", demo.name, "Call booked: " + slot.label + " (15 minutes)"],
+      ["#34c759", "Messages", shortDate(slot.day), demo.name, "Reminder: your call with " + demo.name + " is today at " + slot.time + "."],
+    ];
+    $("notes").textContent = "";
+    notes.forEach(function (n) {
+      var div = el("div", { class: "note" });
+      div.innerHTML = '<div class="note__app"><b><span class="app-icon"></span><span></span></b><span></span></div><strong></strong><span></span>';
+      div.querySelector(".app-icon").style.background = n[0];
+      div.querySelector(".note__app b span:last-child").textContent = n[1];
+      div.querySelector(".note__app > span").textContent = n[2];
+      div.querySelector("strong").textContent = n[3];
+      div.querySelector(".note > span").textContent = n[4];
+      $("notes").appendChild(div);
+    });
+
+    // The team's summary email.
+    var mail = $("summary-mail");
+    mail.textContent = "";
+    mail.appendChild(el("span", { class: "subject" }, "New from the website: " + s.first + ", " + s.topic));
+    mail.appendChild(el("span", { class: "from" }, "From your website assistant · just now"));
+    var lines = [
+      "Name: " + s.first,
+      "About: " + s.topic,
+      demo.soonLabel + ": " + s.soon,
+      "Call booked: " + slot.label + " (15 minutes)",
+    ];
+    if (s.asked.length) lines.push("Asked first: " + s.asked.join(" · "));
+    lines.push("Email and phone: shown here in the real setup");
+    mail.appendChild(document.createTextNode(lines.join("\n")));
+
+    // The diary: the call among a made-up working week.
+    var week = $("week"), monday = addDays(slot.day, -((slot.day.getDay() + 6) % 7));
+    week.textContent = "";
+    week.appendChild(el("div"));
+    for (var i = 0; i < 5; i++) {
+      var d = addDays(monday, i);
+      week.appendChild(el("div", { class: "week__h" + (d.getTime() === slot.day.getTime() ? " is-today" : "") }, DAYS[d.getDay()] + " " + d.getDate()));
+    }
+    for (var h = 9; h <= 16; h++) {
+      week.appendChild(el("div", { class: "week__t" }, pad(h) + ":00"));
+      for (var j = 0; j < 5; j++) {
+        var cell = el("div", { class: "week__c" });
+        var cd = addDays(monday, j);
+        if (cd.getTime() === slot.day.getTime() && h === hour) {
+          var block = el("div", { class: "bookblock" });
+          if (mins === "30") block.style.top = "50%";
+          block.appendChild(el("b", {}, slot.time + " " + s.first));
+          block.appendChild(el("div", {}, "Call · " + s.topic));
+          cell.appendChild(block);
+        } else if (cd > new Date() && busy(cd, pad(h) + ":00")) {
+          cell.appendChild(el("div", { class: "busyblock" }, "Busy"));
+        }
+        week.appendChild(cell);
+      }
+    }
+  }
+
+  function play() {
+    var items = Array.prototype.slice.call($("flow").children);
+    var phone = Array.prototype.slice.call($("notes").children);
+    items.concat(phone).forEach(function (x) { x.classList.remove("is-on"); });
+    var gap = reduce ? 0 : 650;
+    items.forEach(function (li, i) { timers.push(setTimeout(function () { li.classList.add("is-on"); }, 300 + i * gap)); });
+    // The confirmation arrives with the booking, the reminder with its step.
+    [2, 3].forEach(function (stepIndex, k) {
+      timers.push(setTimeout(function () { phone[k].classList.add("is-on"); }, 300 + stepIndex * gap + 150));
+    });
+  }
+  $("replay").addEventListener("click", play);
+
+  // --- Page setup -------------------------------------------------------------------------
+  var root = document.documentElement.style;
+  root.setProperty("--tone", demo.tone);
+  root.setProperty("--tone-2", demo.tone2);
+  document.title = demo.name + " · Website assistant · AIX demo";
+  $("biz-name").textContent = demo.name;
+  $("biz-line").textContent = demo.line;
+  $("biz-hours").textContent = demo.hours;
+  $("logo").innerHTML = svg(demo.logo, 1.8).replace('stroke="currentColor"', 'stroke="#fff"');
+  $("avatar").innerHTML = svg("chat", 2.2);
+  $("chat-title").textContent = demo.name + " assistant";
+  $("owner-biz").textContent = demo.name;
+  $("sum-soon-label").textContent = demo.soonLabel;
+  if (named) {
+    // Their real name, so nothing made up is claimed about them: no tagline, no hours.
+    $("demo-about").textContent = "This is a preview made by AIX for " + named +
+      ", with example questions and answers, to show what people contacting you would see.";
+    $("biz-line").style.display = "none";
+    $("biz-hours").style.display = "none";
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".switch a"), function (a) {
+    if (a.dataset.for === kind) a.setAttribute("aria-current", "page");
+  });
+  greet();
+</script>
+</body>
+</html>
