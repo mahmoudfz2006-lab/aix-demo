@@ -337,6 +337,7 @@
       <a href="?for=garage" data-for="garage">Garage</a>
       <a href="?for=salon" data-for="salon">Salon</a>
       <a href="?for=vet" data-for="vet">Vet</a>
+      <a href="?for=dentist" data-for="dentist">Dentist</a>
     </nav>
   </div>
 </div>
@@ -460,8 +461,8 @@
         <div class="pane"><div class="week" id="week"></div></div>
       </div>
       <div>
-        <h3>Customer reminders sheet</h3>
-        <div class="pane"><table class="sheet" id="sheet"></table></div>
+        <h3 id="later-title">Customer reminders sheet</h3>
+        <div class="pane" id="sheet-pane"><table class="sheet" id="sheet"></table></div>
         <div class="mail" id="mail-later"></div>
       </div>
     </div>
@@ -470,8 +471,8 @@
   <footer class="aix">
     <div class="wordmark">AIX</div>
     <p>This demo was made by AIX, a small automation studio. We set up online booking that goes
-      straight into your diary, with automatic confirmations and reminders, for garages, salons
-      and vets. You keep running your business; the follow-up runs itself.</p>
+      straight into your diary, with automatic confirmations and reminders, for garages, salons,
+      vets and dental practices. You keep running your business; the follow-up runs itself.</p>
     <div class="points"><span>Online booking</span><span>Confirmations</span><span>Reminders</span><span>Set up for you</span></div>
     <a class="cta" href="mailto:aixagent001@gmail.com?subject=Online%20booking%20demo">Talk to AIX about this →</a>
     <small>aixagent001@gmail.com</small>
@@ -492,6 +493,7 @@
     stetho: '<path d="M5 3v6a5 5 0 0 0 10 0V3"/><path d="M10 14v2a5 5 0 0 0 10 0v-2"/><circle cx="20" cy="12" r="2"/>',
     car: '<path d="M5 17h14M5 17a2 2 0 1 1-4 0v-5l2-5h14l2 5v5a2 2 0 1 1-4 0"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
     comb: '<path d="M4 20L20 4M7 17l-2-2M10 14l-2-2M13 11l-2-2M16 8l-2-2"/>',
+    tooth: '<path d="M7 3c-2.5 0-4 2-4 4.5 0 2 .8 3.4 1.3 5.3.5 2 .7 4.2 1.2 6.4.3 1.3 1 1.8 1.7 1.8 1 0 1.4-.9 1.7-2.2l.6-2.8c.2-.9.8-1.5 1.5-1.5s1.3.6 1.5 1.5l.6 2.8c.3 1.3.7 2.2 1.7 2.2.7 0 1.4-.5 1.7-1.8.5-2.2.7-4.4 1.2-6.4.5-1.9 1.3-3.3 1.3-5.3C21 5 19.5 3 17 3c-2 0-3 1-5 1S9 3 7 3z"/>',
     paw: '<circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><path d="M9 10a5 5 0 0 1 5 5v3.5a3.5 3.5 0 0 1-6.8 1.2c-.3-.9-.9-1.7-1.7-2.2A3.4 3.4 0 0 1 4 14.5 4.5 4.5 0 0 1 9 10z"/>',
     clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
@@ -550,6 +552,23 @@
       extra: "Pet's name", extraExample: "Biscuit",
       laterLabel: "Yearly vaccination reminder",
       ref: "EXV",
+    },
+    // Clinic rules (docs/DELIVERY.md): no health details asked, and reminders come from the
+    // practice's own booking system, never AIX's reminders sheet.
+    dentist: {
+      name: "Example Dental",
+      line: "Gentle, friendly dental care for the whole family.",
+      hours: "Mon–Fri 8:30–17:30",
+      logo: "tooth",
+      tone: "#0a84ff", tone2: "#2fd3e0",
+      services: [
+        ["Check-up", "An examination, with a clean if you need one.", 30, "check"],
+        ["Hygienist", "A scale and polish with the hygienist.", 30, "drop"],
+        ["Consultation", "A chat about a problem or a treatment.", 20, "stetho"],
+      ],
+      extra: null,
+      laterLabel: "Check-up reminder in 6 months",
+      ref: "EXD",
     },
   };
   var MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August",
@@ -758,6 +777,10 @@
       later = addDays(day, 42);
       subject = "Time to book your next visit at " + demo.name;
       body = "It's nearly time for your next visit — it's due around " + longDate(later) + ".";
+    } else if (kind === "dentist") {
+      later = addDays(day, 182);
+      subject = "Time for your check-up at " + demo.name;
+      body = "It's nearly time for your next check-up — it's due around " + longDate(later) + ".";
     } else {
       later = new Date(day.getFullYear() + 1, day.getMonth(), day.getDate(), 12);
       if (kind === "vet") {
@@ -777,7 +800,9 @@
     var steps = [
       ["calendar", "Booking added to the diary", "No double bookings: the slot closes for everyone else.", "Instantly"],
       ["mail", "Confirmation email sent to " + s.first, s.service[0] + ", " + shortDate(s.day) + " at " + s.time + ".", "Instantly"],
-      ["sheet", "Added to the reminders sheet", "So the next visit is never forgotten.", "Instantly"],
+      kind === "dentist"
+        ? ["sheet", "Reminder set in the practice's booking system", "Patient details stay there, nowhere else.", "Instantly"]
+        : ["sheet", "Added to the reminders sheet", "So the next visit is never forgotten.", "Instantly"],
       ["bell", "Reminder the day before", "Fewer no-shows, without a single phone call.", shortDate(addDays(s.day, -1))],
       ["repeat", demo.laterLabel, "Brings " + s.first + " back when it's due.", longDate(later.date)],
     ];
@@ -798,7 +823,7 @@
     var notes = [
       ["#0a84ff", "Mail", "now", demo.name, "Booking confirmed: " + s.service[0] + ", " + shortDate(s.day) + " at " + s.time],
       ["#34c759", "Messages", shortDate(addDays(s.day, -1)), demo.name, "Reminder: your " + svc + " at " + demo.name + " is tomorrow at " + s.time + ". See you then!"],
-      ["#0a84ff", "Mail", kind === "salon" ? "in 6 weeks" : "next year", demo.name, later.subject],
+      ["#0a84ff", "Mail", kind === "salon" ? "in 6 weeks" : kind === "dentist" ? "in 6 months" : "next year", demo.name, later.subject],
     ];
     $("notes").textContent = "";
     notes.forEach(function (n) {
@@ -840,6 +865,11 @@
     }
 
     // The reminders sheet and the reminder email, worded exactly as the sheet sends it.
+    // Dental practices keep patients in their own booking system, so they get no sheet.
+    if (kind === "dentist") {
+      $("later-title").textContent = "The check-up reminder, from the practice's booking system";
+      $("sheet-pane").style.display = "none";
+    }
     var sheet = $("sheet");
     sheet.textContent = "";
     var head = el("tr");
