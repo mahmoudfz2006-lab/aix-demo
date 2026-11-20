@@ -332,7 +332,7 @@
 <body>
 <div class="demo-bar" role="note">
   <div class="demo-bar__inner">
-    <span><span class="demo-tag">DEMO</span>This is a demo of a made-up business, to show what your customers would see. <strong>Nothing you type is saved or sent.</strong></span>
+    <span><span class="demo-tag">DEMO</span><span id="demo-about">This is a demo of a made-up business, to show what your customers would see.</span> <strong>Nothing you type is saved or sent.</strong></span>
     <nav class="switch" aria-label="Demo versions">
       <a href="?for=garage" data-for="garage">Garage</a>
       <a href="?for=salon" data-for="salon">Salon</a>
@@ -557,9 +557,14 @@
   var DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   var WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-  var kind = new URLSearchParams(location.search).get("for");
+  var params = new URLSearchParams(location.search);
+  var kind = params.get("for");
   if (!Object.prototype.hasOwnProperty.call(DEMOS, kind)) kind = "garage";
-  var demo = DEMOS[kind];
+  // ?name= puts the prospect's own business name on the page (owner decision 2026-11-20).
+  // Only ever shown as text; empty or longer than 60 characters: the made-up business.
+  var named = (params.get("name") || "").replace(/\s+/g, " ").trim();
+  if (named.length > 60) named = "";
+  var demo = Object.assign({}, DEMOS[kind], named ? { name: named } : {});
   var state = { service: null, day: null, time: null, first: "", extra: "" };
   var timers = [];
 
@@ -608,6 +613,13 @@
   $("sum-biz").textContent = demo.name;
   $("sum-later").textContent = demo.laterLabel;
   $("owner-biz").textContent = demo.name;
+  if (named) {
+    // Their real name, so nothing made up is claimed about them: no tagline, no hours.
+    $("demo-about").textContent = "This is a preview made by AIX for " + named +
+      ", with example services and times, to show what your customers would see.";
+    $("biz-line").style.display = "none";
+    $("biz-hours").style.display = "none";
+  }
   Array.prototype.forEach.call(document.querySelectorAll(".switch a"), function (a) {
     if (a.dataset.for === kind) a.setAttribute("aria-current", "page");
   });
